@@ -12,10 +12,11 @@ from os.path import basename, splitext
 import modules.experiment.experiment as exp
 
 
-def run_type(k, group_size, alpha, decay, crossover, mutation, interval, epsilon, window_size,init_order,p_forget):
+def run_type(ARGS):
     """
     Call the apropriate script to run the experiment based on experiment type
     """
+    k, group_size, alpha, decay, crossover, mutation, interval, epsilon = ARGS
     network_name = basename(FILE)
     network_name = splitext(network_name)[0]
 
@@ -25,6 +26,7 @@ def run_type(k, group_size, alpha, decay, crossover, mutation, interval, epsilon
                         p_interval=P_INTERVAL, p_drivers_route=P_DRIVERS_ROUTE,
                         TABLE_INITIAL_STATE=QL_TABLE_STATE, MAXI=MAXI, MINI=MINI, fixed=FIXED,
                         action_selection=ACTION_SELECTION, temperature=TEMPERATURE)
+
     if EXPERIMENT_TYPE == 1:  # QL only
         print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
               + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
@@ -55,57 +57,25 @@ def run_type(k, group_size, alpha, decay, crossover, mutation, interval, epsilon
         ex.run_ga_ql(True, True, GENERATIONS, POPULATION, crossover,
                      mutation, ELITE_SIZE, alpha, decay, interval)
 
-    elif EXPERIMENT_TYPE == 5:  # UCB1
-        print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
-              + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
-        print("Running UCB1 Only")
-        ex.run_UCB1(GENERATIONS, init_order)
 
-    elif EXPERIMENT_TYPE == 6:  # Thompson
-        print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
-              + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
-        print("Running Thompson  Only")
-        ex.run_Thompson(GENERATIONS)
-
-    elif EXPERIMENT_TYPE == 7:  # UCB1 Discount
-        print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
-              + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
-        print("Running UCB1Discounted Only")
-        ex.run_UCB1Discounted(GENERATIONS, decay,init_order)
-
-    elif EXPERIMENT_TYPE == 8:  # UCB1 Sliding Window
-        print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
-              + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
-        print("Running UCB1 Sliding Window only")
-        ex.run_UCB1Window(GENERATIONS, decay, window_size, init_order)
-    elif EXPERIMENT_TYPE == 9:  # Exp3
-        print("Parameters:\n\tAction sel.: {0}\tGenerations: {1}".format(ACTION_SELECTION, GENERATIONS)
-              + "\n\tBase flow: {0}\tk: {1}".format(FLOW, k))
-        print("Running Rexp3 only")
-        ex.run_Exp3(GENERATIONS, epsilon)
-
-
-
-def build_args():
+def process_args(ARGS):
     """
+    Process the ARGS to create a list with each parameter on the correct position.
+
     returns: list with all the possible parameter configuration.
     each parameter configuration is a list on itself
     """
     print("Building the experiment configurations list..")
     args = []
-    for g_size in GROUP_SIZES:
-        for alpha in ALPHAS:
-            for decay in DECAYS:
-                for crossover in CROSSOVERS:
-                    for mutation in MUTATIONS:
-                        for k in KS:
-                            for interval in GA_QL_INTERVAL:
-                                for epsilon in EPSILON:
-                                    for window_size in WINDOW_SIZE:
-                                        for init_order in INIT_ORDER:
-                                            for pf in P_FORGET:
-                                                args.append([g_size, alpha, decay, crossover, mutation, k,
-                                                     interval, epsilon, window_size, init_order,pf])
+    for g_size in ARGS.grouping:
+        for alpha in ARGS.alphas:
+            for decay in ARGS.decays:
+                for crossover in ARGS.crossovers:
+                    for mutation in ARGS.mutations:
+                        for k in ARGS.ks:
+                            for interval in ARGS.exchangeGAQL:
+                                for epsilon in ARGS.epsilon:
+                                    args.append([g_size, alpha, decay, crossover, mutation, k, interval, epsilon])
     return args
 
 
@@ -114,44 +84,42 @@ def run_arg(args):
     args: list of arguments
     """
     for arg in args:
-        assert len(arg) == 11
-        group_size, alpha, decay, crossover, mutation, k, interval, epsilon, window_size, init_order,pf = arg
+        assert len(arg) == 8
         for repetition in range(REPETITIONS):
-            run_type(k, group_size, alpha, decay, crossover, mutation, interval, epsilon, window_size,init_order,pf)
+            run_type(arg)
             print("Repetition %s/%s\n" % (repetition + 1, REPETITIONS))
 
 
-def run():
+def run(ARGS):
     """
     Run the experiment.
     """
-    args = build_args()
+    args = process_args(ARGS)
     run_arg(args)
 
 
-if __name__ == "__main__":
+def build_parser():
+    """
+        Builds the parser and process the arguments.
+    """
     prs = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                   description="""
                                   Traffic Assignment Problem or
                                   Route Choice Problem.
                                   Script to run the simulation of
                                   drivers going from different points in a given network""")
+
     prs.add_argument("-f", dest="file", required=True, help="The network file.\n")
 
     prs.add_argument("-as", "--action-selection", type=str, choices=["epsilon", "boltzmann"],
                      default="epsilon", help="How the agents should select their actions.\n")
 
-    prs.add_argument("-et", "--experimentType", type=int, choices=[1, 2, 3, 4, 5, 6, 7, 8, 9], default=1,
+    prs.add_argument("-et", "--experimentType", type=int, choices=[1, 2, 3, 4], default=1,
                      help="""
                      1 - QL only;
                      2 - GA only;
                      3 - QL builds solution for GA;
                      4 - GA and QL exchange solutions.
-                     5 - UCB1 only
-                     6 - Thompson only
-                     7 - UCB1 Discounted only
-                     8 - UCB1 Sliding Window only
-                     9 - Rexp3\n
                      """)
 
     prs.add_argument("-r", "--repetitions", type=int, default=1,
@@ -232,15 +200,14 @@ if __name__ == "__main__":
 
     prs.add_argument("-t", "--temperature", type=float, help="Temperature for the" \
                                                              " Boltzmann action selection.\n")
-    prs.add_argument("-ws", "--windowsize", nargs="+", type=int, default=[20],
-                     help="Window size for Sliding Window UCB1\n")
-    prs.add_argument("-io", "--initorder", nargs="+", type=int, default=[1],choices=[1, 2],
-                     help="How UCB-based algorithms should be initiaded: 1-random order, 2-sequential order\n")
-    prs.add_argument("-pf", "--probabilityforget", nargs="+", type=float, default=[1.0], \
-                     help="List of probabilities of forgetting for the Rexp3MA algorithms.\n")
-
 
     args = prs.parse_args()
+
+    return args
+
+
+if __name__ == "__main__":
+    args = build_parser()
 
     if args.table_fill_file is None and args.ql_table_initiation == "coupling":
         prs.error("The 'coupling' argument requires a file to be read")
@@ -269,20 +236,10 @@ if __name__ == "__main__":
 
     EXPERIMENT_TYPE = args.experimentType
     ELITE_SIZE = args.elite_size
-    GROUP_SIZES = args.grouping
-    ALPHAS = args.alphas
-    DECAYS = args.decays
-    CROSSOVERS = args.crossovers
-    MUTATIONS = args.mutations
-    KS = args.ks
-    GA_QL_INTERVAL = args.exchangeGAQL
     QL_TABLE_STATE = args.ql_table_initiation
     FLOW = args.flow
-    EPSILON = args.epsilon
     TABLE_FILL_FILE = args.table_fill_file
     TEMPERATURE = args.temperature
     ACTION_SELECTION = args.action_selection
-    WINDOW_SIZE = args.windowsize
-    INIT_ORDER = args.initorder
-    P_FORGET = args.probabilityforget
-    run()
+
+    run(args)
