@@ -89,61 +89,6 @@ def clean_od_table(od_list, k):
 
     return table_fill
 
-def nodes_string(print_od_pair, print_travel_time, print_drivers_link, print_drivers_route,
-                 od_list, edge_names, od_header):
-    """
-    String of edges of the graph that will be printed or stored in the file.
-
-    In:
-        print_... :Booleans = Parameters of the experiment to be printed in the file or the screen.
-        od_list:OD = List of the OD pairs of the network.
-        edges_names:String = List of the names of the edges.
-        od_header:String = The header of the result file.
-    Out:
-        nodes_str:String = String with the values of the desired parameters.
-    """
-    nodes_str = ''
-    if print_od_pair:
-        for od_pair in od_list:
-            nodes_str += "tt_%s|%s " % (od_pair.o, od_pair.d)
-    if print_travel_time:
-        for edge in edge_names:
-            nodes_str += 'tt_' + edge + ' '
-    if print_drivers_link:
-        for edge in edge_names:
-            nodes_str += "nd_" + edge + ' '
-    if print_drivers_route:
-        nodes_str += od_header
-    nodes_str = nodes_str.strip()
-
-    return nodes_str
-
-def nd(drivers, group_size):
-    """
-    Number of drivers.
-    """
-    return len(drivers) * group_size
-
-def appendTag(fn_wo_tag):
-    """
-        Test if there isn't already a file with the desired name, sometimes the repetitions of the
-        experiments are less than 1s apart.
-
-    In:
-        fn_wo_tag:String = Filename without the tag.
-    Out:
-        filenamewithtag:String = Filename with the tag.
-    """
-    append_number = ''
-    while os.path.isfile(fn_wo_tag + append_number + ".txt"):
-        if append_number == '':
-            append_number = "-1"
-        else:
-            append_number = "-" + str(int(append_number[1:]) + 1)
-    filenamewithtag = fn_wo_tag + append_number + ".txt"
-
-    return filenamewithtag
-
 def read_infos(graph_file, flow):
     """
     Read the edges and OD pairs from the file in this program format(with the functions of each).
