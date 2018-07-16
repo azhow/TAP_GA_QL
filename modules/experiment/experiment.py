@@ -1,11 +1,5 @@
 #!/usr/bin/env python
 """
-Changelog:
-    v1.0 - Changelog created. <08/03/2017>
-
-Maintainer: Arthur Zachow Coelho (arthur.zachow@gmail.com)
-Created (changelog): 08/03/2017
-
 This module contains the Experiment class, which is the experiment or simulation itself.
 
 Warning: Use spaces instead of tabs, or configure your editor to transform tab to 4 spaces.
@@ -177,8 +171,6 @@ class Experiment(object):
             print_progress(episode+1, num_episodes)
         '''
 
-        self.outputFile.close()
-
     def run_ga_ql(self, useQL, useInt, generations, population, crossover, mutation, elite, alpha,
                   decay, interval):
         from modules.genetic_algorithm.genetic_algorithm import *
@@ -226,9 +218,6 @@ class Experiment(object):
         """
         dicti = {}
         for inx, dr in enumerate(driverString):
-            if(type(dr) != int):
-                print('problema!', driverString, '\n')
-                print type(dr)
             path = self.drivers[inx].od.paths[dr]
             for edge in path[0]:
                 if edge in dicti.keys():
