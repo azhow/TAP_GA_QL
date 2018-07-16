@@ -13,7 +13,6 @@ Warning: Use spaces instead of tabs, or configure your editor to transform tab t
 
 #Standard modules
 import os
-from time import localtime
 import string
 
 #Local modules
@@ -161,162 +160,6 @@ class Experiment(object):
         self.__print_step(generation, ga_engine.bestIndividual().getInternalList(),
                           avgTT=ga_engine.bestIndividual().score, qlTT=worstsol.score)
 
-    def build_od_pair_data(self, ttByOD):
-        """
-        Returns the string of OD pair data for each OD.
-        Not tested yet, need to test QL module first.
-        """
-        str_od = ''
-        for k in ttByOD.keys():
-            if len(ttByOD[k]) == 0:
-                str_od = '0'
-            else:
-                str_od += " %4.4f" % (sum(ttByOD[k]) / len(ttByOD[k]))
-
-        return str_od + ' '
-
-    def __print_step(self, step_number, stepSolution, avgTT=None, qlTT=None):
-        """
-        Write infos to the output file.
-            step_number:int = episode/generation
-            step_solution:QL = instance of QL class.
-        """
-
-        if step_number % self.printInterval == 0:
-            if self.useGA:
-                if self.useQL:
-                    self.outputFile.write(str(step_number) + " " + str(avgTT) +" "+ str(qlTT))
-                else:
-                    self.outputFile.write(str(step_number) + " " + str(avgTT) + " ")
-            else:
-                self.outputFile.write(str(step_number) + " " + str(qlTT)+" ")
-
-            if self.printODpair:
-                ttByOD = self.travelTimeByOD(stepSolution)
-                self.outputFile.write(self.build_od_pair_data(ttByOD))
-
-            if self.printTravelTime:
-                travel_times = ''
-                edges = self.calculate_edges_travel_times(stepSolution)
-                for edge in self.edgeNames:
-                    travel_times += str(edges[edge]) + " "
-                self.outputFile.write(travel_times.strip() + " ")
-
-            if self.printDriversPerLink:
-                drivers = ''
-                edges = self.driversPerLink(stepSolution)
-                for edge in self.edgeNames:
-                    drivers += str(edges[edge]) + " "
-                self.outputFile.write(drivers.strip())
-
-            if self.printDriversPerRoute:
-                self.TABLE_FILL = utils.clean_od_table(self.ODL, self.k)
-                for s in range(len(stepSolution)):
-                    self.TABLE_FILL[str(self.drivers[s].od.o)
-                                    + str(self.drivers[s].od.d)][stepSolution[s]] += 1
-                self.outputFile.write(" ")
-                for keys in self.ODL:  # Now it prints in the correct order
-                    for x in range(len(self.TABLE_FILL[keys])):
-                        self.outputFile.write(str(self.TABLE_FILL[keys][x]) + " ")
-
-            self.outputFile.write("\n")
-
-    def createStringArgumentsQL(self, nd):
-        """
-        Generate filename, generate the path to the file and generate the header infos for the file
-        In:
-            nd:int = number of drivers without groupsize
-        Out:
-            filename:string = filename
-            path:string = path to file
-            headerstr:string = parameters used in the experiment
-        """
-        fmt = "./results_gaql_grouped/net_%s/QL/decay%4.3f/alpha%3.2f"
-        path = fmt % (self.network_name, self.decay, self.alpha)
-
-        filename = path + '/' + self.network_name + '_k' + str(self.k) + '_a' + str(self.alpha) \
-                 + '_d' + str(self.decay) + '_' + str(localtime()[3]) + 'h' + str(localtime()[4]) \
-                 + 'm' + str(localtime()[5]) + 's'
-
-        headerstr = "#Parameters:" + "\n#\tAlpha=" + str(self.alpha)
-
-        if self.action_selection == "epsilon":
-            headerstr += "\tEpsilon=" + str(self.epsilon)
-        elif self.action_selection == "boltzmann":
-            headerstr += "\tTemperature=" + str(self.temperature)
-
-        headerstr += "\n#\tDecay=" + str(self.decay) + "\tNumber of drivers=" \
-                  + str(nd) + "\n#\tGroup size=" + str(self.group_size) + "\tQL Table init=" \
-                  + str(self.TABLE_INITIAL_STATE) +  "\n#\tk=" + str(self.k)
-
-        if self.TABLE_INITIAL_STATE == "fixed":
-            headerstr += "\t\tFixed value=" + str(self.fixed)
-        elif self.TABLE_INITIAL_STATE == "random":
-            headerstr += "\t\tMax=" + str(self.maxi) + "\n#\tMin=" + str(self.mini)
-
-        headerstr += "\n#Episode AVG_TT " + utils.nodes_string(self.printODpair, self.printTravelTime,
-                                                         self.printDriversPerLink,
-                                                         self.printDriversPerRoute, self.ODlist,
-                                                         self.edgeNames, self.ODheader)
-
-        return filename, path, headerstr
-
-    def createStringArguments(self, useQL, useInt):
-        fmt = "./results_gaql_grouped/net_%s/GA/pm%4.4f/crossover_%.2f"
-        path = fmt % (self.network_name, self.mutation, self.crossover)
-
-        filename = '/net' + self.network_name + '_pm' + str(self.mutation) + '_c' \
-                 + str(self.crossover) + '_e' + str(self.elite) + '_k' + str(self.k)
-
-        headerstr = "#Parameters:" + "\n#\tGenerations=" + str(self.generations) + "\tPopulation=" \
-                  + str(self.population) + "\n#\tMutation=" + str(self.mutation) + "\tCrossover=" \
-                  + str(self.crossover) + "\n#\tElite=" + str(self.elite) + "\t\tGroup size=" \
-                  + str(self.group_size) + "\n#\tk=" + str(self.k) + "\t\tNumber of drivers=" \
-                  + str(utils.nd(self.drivers, self.group_size))
-
-        headerstr_ext = "\n#Generations AVG_TT "
-
-        if useQL: #Experiment type 3
-            fmt = "./results_gaql_grouped/net_%s/QLGA/pm%4.4f/crossover_%.2f/decay%4.3f/alpha%3.2f"
-            path = fmt % (self.network_name, self.mutation, self.crossover, self.decay, self.alpha)
-
-            filename += '_a' + str(self.alpha) + '_d' + str(self.decay)
-            headerstr += "\n#\tAlpha=" + str(self.alpha) + "\tDecay=" + str(self.decay) \
-
-            if self.action_selection == "epsilon":
-                headerstr += "\n#\tEpsilon=" + str(self.epsilon)
-            elif self.action_selection == "boltzmann":
-                headerstr += "\n#\tTemperature=" + str(self.temperature)
-
-            headerstr += "\tQL table init=" + str(self.TABLE_INITIAL_STATE)
-
-            if self.TABLE_INITIAL_STATE == "fixed":
-                headerstr += "\n#\tFixed value=" + str(self.fixed)
-            elif self.TABLE_INITIAL_STATE == "random":
-                headerstr += "\n#\tMax=" + str(self.maxi) + "\t\tMin=" + str(self.mini)
-
-
-            headerstr_ext += " QL_AVG_TT"
-
-            if useInt: #Experiment type 4
-                fmt = "./results_gaql_grouped/net_%s/GAQL/" \
-                       + "pm%4.4f/crossover_%.2f/decay%4.3f/alpha%3.2f"
-
-                path = fmt % (self.network_name, self.mutation, self.crossover, self.decay, self.alpha)
-                filename += '_interval'+ str(self.interval)
-                headerstr += "\n#\tGA<->QL interval=" + str(self.interval)
-
-        filename += '_' + str(localtime()[3]) + 'h' + str(localtime()[4]) + 'm' \
-                 + str(localtime()[5]) + 's'
-
-        filename = path + filename
-
-        headerstr += headerstr_ext + utils.nodes_string(self.printODpair, self.printTravelTime,
-                                                  self.printDriversPerLink, self.printDriversPerRoute,
-                                                  self.ODlist, self.edgeNames, self.ODheader)
-
-        return filename, path, headerstr
-
     def run_ql(self, num_episodes, alpha, decay):
         self.useGA = False
         self.useQL = True
@@ -327,23 +170,12 @@ class Experiment(object):
                      fixed=self.fixed, action_selection=self.action_selection,
                      temperature=self.temperature)
 
-        filename, path, headerstr = self.createStringArgumentsQL(len(self.drivers))
-        filename = utils.appendTag(filename)
-
-        if os.path.isdir(path) is False:
-            os.makedirs(path)
-
-        self.outputFile = open(filename, 'w')
-        self.outputFile.write(headerstr + '\n')
-
         for episode in range(num_episodes):
             (instance, value) = self.ql.runEpisode()
             self.__print_step(episode, instance, qlTT=value)
         ''' To print progress bar, uncomment this line.
             print_progress(episode+1, num_episodes)
         '''
-
-        print("Output file location: %s" % filename)
 
         self.outputFile.close()
 
