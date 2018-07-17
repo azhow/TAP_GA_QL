@@ -5,11 +5,11 @@ This module contains the Experiment class, which is the experiment or simulation
 Warning: Use spaces instead of tabs, or configure your editor to transform tab to 4 spaces.
 """
 
-#Standard modules
+# Standard modules
 import os
 import string
 
-#Local modules
+# Local modules
 import modules.q_learning.q_learning as q_learning
 import modules.functions.functions as utils
 import modules.experiment.classes as classes
@@ -35,21 +35,23 @@ class Experiment(object):
         self.k = k
         self.epsilon = epsilon
         self.group_size = group_size
+
         self.printDriversPerLink = p_drivers_link
         self.printTravelTime = p_travel_time
         self.printODpair = p_od_pair
         self.printInterval = p_interval
         self.printDriversPerRoute = p_drivers_route
-        self.TABLE_INITIAL_STATE = TABLE_INITIAL_STATE
         self.network_name = net_name
+        self.ODheader = ""
+        self.ODL = []
+
+        self.TABLE_INITIAL_STATE = TABLE_INITIAL_STATE
         self.flow = flow
         self.TABLE_FILL = {}
         self.mini = MINI
         self.maxi = MAXI
         self.fixed = fixed
         self.ODlist = []
-        self.ODL = []
-        self.ODheader = ""
 
         self.Vo, self.Eo, odInputo = utils.read_infos(net_file, flow=flow)
 
@@ -92,15 +94,6 @@ class Experiment(object):
 
         if TABLE_INITIAL_STATE == 'coupling':
             self.TABLE_FILL = utils.generate_table_fill(table_fill_file)
-
-    def __repr__(self):
-        """
-        __repr__ method override.
-
-        >>> Experiment(8, './networks/OW10_1/OW10_1.net', 1, 'OW10_1')
-        'Experiment: k = 8, net_name = OW10_1'
-        """
-        return repr(str('Experiment: k = ' + str(self.k) + ', net_name = ' + (self.network_name)))
 
     def genCallBack(self, ga_engine):
         """
@@ -207,75 +200,6 @@ class Experiment(object):
 
         print("Output file location: %s" % filename)
         self.outputFile.close()
-
-    def driversPerLink(self, driverString):
-        """
-        receives an array of ints stresenting the chosen path of each group
-        the array is sorted in the same way as the alleles and the drivers
-        list
-        returns a dicionary where the keys are edges and the values are the
-        amount of drivers on the edge
-        """
-        dicti = {}
-        for inx, dr in enumerate(driverString):
-            path = self.drivers[inx].od.paths[dr]
-            for edge in path[0]:
-                if edge in dicti.keys():
-                    dicti[edge] += self.group_size
-                else:
-                    dicti[edge] = self.group_size
-        for link in self.freeFlow.keys():
-            if link not in dicti.keys():
-                dicti[link] = 0
-        return dicti
-
-    def evaluateActionTravelTime(self, driverIndex, action, edgesTravelTimes):
-        #calculates travel times for a driver
-        traveltime = 0.0
-        path = self.drivers[driverIndex].od.paths[action][0]  # list of nodes of path
-        for edge in path:
-            traveltime += edgesTravelTimes[edge]
-        return traveltime
-
-    def initTravelTimeByODDict(self):
-        d = {}
-        for od in self.ODlist:
-            d["%s%s" % (od.o, od.d)] = []
-        return d
-
-    def travelTimeByOD(self, string_actions):
-        edgesTravelTimes = self.calculate_edges_travel_times(string_actions)
-        odTravelTimeDict = self.initTravelTimeByODDict()
-        for driverIdx, action in enumerate(string_actions):
-            path = self.drivers[driverIdx].od.paths[action][0]
-            traveltime = 0.0
-            for edge in path:
-                traveltime += edgesTravelTimes[edge]
-            odTravelTimeDict[self.drivers[driverIdx].od_s()].append(traveltime)
-
-        return odTravelTimeDict
-
-    def calculateIndividualTravelTime(self, string_actions):
-        #returns list of travel times for each driver
-        edgesTravelTimes = self.calculate_edges_travel_times(string_actions)
-        results = []
-        for driverIdx, action in enumerate(string_actions):
-            travel_times = self.evaluateActionTravelTime(driverIdx, action, edgesTravelTimes)
-            results.append(travel_times)
-        return results
-
-    def calculate_edges_travel_times(self, string_actions):
-        edges_travel_times = {}
-        #Get the flow of that edge
-        link_occupancy = self.driversPerLink(string_actions)
-        #For each edge
-        for edge in self.Eo:
-            #Evaluates the cost of that edge with a given flow (i.e. edge.eval_cost(flow))
-            edges_travel_times[edge.name] = edge.eval_cost(link_occupancy[edge.name])
-        return edges_travel_times
-
-    def calculateAverageTravelTime(self, stringOfActions):
-        return sum(self.calculateIndividualTravelTime(stringOfActions)) / len(stringOfActions)
 
 
 if __name__ == '__main__':

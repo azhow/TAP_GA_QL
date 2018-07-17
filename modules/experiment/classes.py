@@ -36,7 +36,7 @@ class EdgeRC(Edge):
         """
         parser = Parser()
         expression = parser.parse(self.function)
-        return expression.evaluate({'f':var_value})
+        return expression.evaluate({'f': var_value})
 
 
 class Driver(object):
@@ -52,15 +52,6 @@ class Driver(object):
         Class constructor.
         """
         self.origin_destination = origin_destination
-
-    def od_s(self):
-        """
-        String of OD pair of the Driver.
-        """
-        return "%s%s" % (self.origin_destination.origin, self.origin_destination.destination)
-
-    def __str__(self):
-        return "%s%s" % (self.origin_destination.origin, self.origin_destination.destination)
 
     def __repr__(self):
         """
@@ -98,6 +89,4 @@ class OriginDestination(object):
         """
         __str__ method override.
         """
-        return "Origin: " + str(self.origin) + ", Destination: " + str(self.destination) + \
-            ", Number of travels: " + str(self.num_travels) + ", Number of shortest paths: " \
-            + str(self.num_paths)
+        return "%s%s".format(self.origin, self.destination)
