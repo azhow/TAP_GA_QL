@@ -17,14 +17,9 @@ import ksp.KSP as ksp
 
 
 class Experiment(object):
-    '''
-        Sets up an experiment.
-    '''
-    def __init__(self, k, net_file, group_size, net_name, table_fill_file=None,
-                 flow=0, p_travel_time=False, p_drivers_link=False, p_od_pair=False, p_interval=1,
-                 epsilon=1.0, p_drivers_route=False, TABLE_INITIAL_STATE='fixed',
-                 MINI=0.0, MAXI=0.0, fixed=0.0, action_selection="epsilon", temperature=0.0,
-                 ):
+    def __init__(self, k, net_file, group_size, table_fill_file=None,
+                 flow=0, epsilon=1.0, TABLE_INITIAL_STATE='fixed',
+                 MINI=0.0, MAXI=0.0, fixed=0.0, action_selection="epsilon", temperature=0.0):
 
         '''
             Construct the experiment.
@@ -36,12 +31,6 @@ class Experiment(object):
         self.epsilon = epsilon
         self.group_size = group_size
 
-        self.printDriversPerLink = p_drivers_link
-        self.printTravelTime = p_travel_time
-        self.printODpair = p_od_pair
-        self.printInterval = p_interval
-        self.printDriversPerRoute = p_drivers_route
-        self.network_name = net_name
         self.ODheader = ""
         self.ODL = []
 

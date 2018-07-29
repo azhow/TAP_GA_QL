@@ -3,7 +3,7 @@ from time import localtime
 import modules.functions.functions as utils
 
 
-class Output(object):
+class Output():
     def __init__(self, infos, network_name, print_interval, print_od_pair, print_travel_time,
                  print_drivers_link, print_drivers_route):
         # Dictionary with the experiment information
@@ -25,10 +25,10 @@ class Output(object):
         """
         str_od = ''
         for k in travel_times_od.keys():
-            if len(travel_times_od[k]) == 0:
-                str_od = '0'
+            if travel_times_od[k]:
+                str_od += " {0:.4f}".format(sum(travel_times_od[k]) / len(travel_times_od[k]))
             else:
-                str_od += " %4.4f".format(sum(travel_times_od[k]) / len(travel_times_od[k]))
+                str_od = '0'
 
         return str_od + ' '
 
@@ -62,7 +62,7 @@ class Output(object):
         nodes_str = ''
         if self.print_od_pair:
             for od_pair in self.infos["od_list"]:
-                nodes_str += "tt_%s ".format(repr(od_pair))
+                nodes_str += "tt_{} ".format(repr(od_pair))
         if self.print_travel_time:
             for edge in self.infos["edge_names"]:
                 nodes_str += 'tt_' + edge + ' '
@@ -82,27 +82,27 @@ class Output(object):
         return len(self.infos["drivers"]) * self.infos["group_size"]
 
     def travel_time_od(self, string_actions):
-        edgesTravelTimes = self.calculate_edges_travel_times(string_actions)
+        edges_travel_times = self.calculate_edges_travel_times(string_actions)
         od_travel_time_dict = {}
 
-        for od in self.infos["ODlist"]:
-            od_travel_time_dict["%s%s".format(od.origin, od.destination)] = []
+        for od_pair in self.infos["ODlist"]:
+            od_travel_time_dict[str(od_pair)] = []
 
-        for driverIdx, action in enumerate(string_actions):
-            path = self.drivers[driverIdx].od.paths[action][0]
+        for index, action in enumerate(string_actions):
+            path = self.infos["drivers"][index].origin_destination.paths[action][0]
             traveltime = 0.0
             for edge in path:
-                traveltime += edgesTravelTimes[edge]
-            od_travel_time_dict[str(self.drivers[driverIdx].origin_destination)].append(traveltime)
+                traveltime += edges_travel_times[edge]
+            od_travel_time_dict[str(self.infos["drivers"][index].origin_destination)].append(traveltime)
 
         return od_travel_time_dict
 
     def calculate_edges_travel_times(self, string_actions):
         edges_travel_times = {}
         # Get the flow of that edge
-        link_occupancy = self.driversPerLink(string_actions)
+        link_occupancy = self.drivers_per_link(string_actions)
         # For each edge
-        for edge in self.Eo:
+        for edge in self.infos["Eo"]:
             # Evaluates the cost of that edge with a given flow (i.e. edge.eval_cost(flow))
             edges_travel_times[edge.name] = edge.eval_cost(link_occupancy[edge.name])
         return edges_travel_times
@@ -114,7 +114,7 @@ class Output(object):
         for driver_index, action in enumerate(string_actions):
             # Calculates travel times for a driver
             travel_times = 0.0
-            path = self.drivers[driver_index].od.paths[action][0]  # list of nodes of path
+            path = self.infos["drivers"][driver_index].origin_destination.paths[action][0]
             for edge in path:
                 travel_times += edges_travel_times[edge]
             results.append(travel_times)
@@ -123,15 +123,15 @@ class Output(object):
 
     def drivers_per_link(self, driver_string):
         dicti = {}
-        for inx, dr in enumerate(driver_string):
-            path = self.drivers[inx].od.paths[dr]
+        for index, driver in enumerate(driver_string):
+            path = self.infos["drivers"][index].origin_destination.paths[driver]
             for edge in path[0]:
                 if edge in dicti.keys():
-                    dicti[edge] += self.group_size
+                    dicti[edge] += self.infos["group_size"]
                 else:
-                    dicti[edge] = self.group_size
+                    dicti[edge] = self.infos["group_size"]
 
-        for link in self.freeFlow.keys():
+        for link in self.infos["freeFlow"].keys():
             if link not in dicti.keys():
                 dicti[link] = 0
         return dicti
@@ -153,7 +153,7 @@ class QlOutput(Output):
         self.output_file = open(self.filename, 'w')
         print(self._create_header(), file=self.output_file)
 
-    def print_step(self, step_number, stepSolution, ql_travel_time):
+    def print_step(self, step_number, step_solution, ql_travel_time):
         """
         Write infos to the output file.
             step_number:int = episode/generation
@@ -163,32 +163,31 @@ class QlOutput(Output):
             print(str(step_number) + " " + str(ql_travel_time), file=self.output_file, end=" ")
 
             if self.print_od_pair:
-                print(super().build_od_pair_data(super().travel_time_od(stepSolution)),
+                print(super().build_od_pair_data(super().travel_time_od(step_solution)),
                       file=self.output_file, end="")
 
             if self.print_travel_time:
                 travel_times = ""
-                edges = super().calculate_edges_travel_times(stepSolution)
+                edges = super().calculate_edges_travel_times(step_solution)
                 for edge in self.infos["edgeNames"]:
                     travel_times += str(edges[edge]) + " "
                 print(travel_times.strip(), file=self.output_file, end=" ")
 
             if self.print_drivers_link:
                 drivers = ""
-                edges = super().drivers_per_link(stepSolution)
+                edges = super().drivers_per_link(step_solution)
                 for edge in self.infos["edgeNames"]:
                     drivers += str(edges[edge]) + " "
                 print(drivers.strip(), file=self.output_file, end=" ")
 
             if self.print_drivers_route:
-                TABLE_FILL = utils.clean_od_table(self.infos["ODL"], self.infos["num_routes"])
-                for s in range(len(stepSolution)):
-                    TABLE_FILL[str(self.infos["drivers"][s].od.origin) +
-                               str(self.infos["drivers"][s].od.destination)][stepSolution[s]] += 1
+                table = utils.clean_od_table(self.infos["ODL"], self.infos["num_routes"])
+                for s in range(len(step_solution)):
+                    table[str(self.infos["drivers"][s].origin_destination)][step_solution[s]] += 1
                 print(" ", file=self.output_file, end="")
                 for key in self.infos["ODL"]:  # Now it prints in the correct order
-                    for x in range(len(self.TABLE_FILL[key])):
-                        print(str(TABLE_FILL[key][x]), file=self.output_file, end=" ")
+                    for x in range(len(table[key])):
+                        print(str(table[key][x]), file=self.output_file, end=" ")
 
             print("", file=self.output_file)
 
@@ -196,7 +195,7 @@ class QlOutput(Output):
         """
             Creates the output file path.
         """
-        fmt = "./results_gaql_grouped/net_%s/QL/decay%4.3f/alpha%3.2f"
+        fmt = "./results_gaql_grouped/net_{0}/QL/decay{1:.3f}/alpha{2:.3f}"
         self.path = fmt.format(self.network_name, self.infos["decay"], self.infos["alpha"])
 
     def _create_filename(self):
@@ -247,57 +246,44 @@ class GaOutput(Output):
         self.output_file = open(self.filename, 'w')
         print(self._create_header(), file=self.output_file)
 
-    """
-    def print_step(self, step_number, stepSolution, output_file, avgTT=None, qlTT=None):
-        Write infos to the output file.
-            step_number:int = episode/generation
-            step_solution:QL = instance of QL class.
-
+    def print_step(self, step_number, step_solution, average_travel_time):
         if step_number % self.printInterval == 0:
-            if self.useGA:
-                if self.useQL:
-                    output_file.write(str(step_number) + " " + str(avgTT) +" "+ str(qlTT))
-                else:
-                    output_file.write(str(step_number) + " " + str(avgTT) + " ")
-            else:
-                output_file.write(str(step_number) + " " + str(qlTT)+" ")
+            print(str(step_number) + " " + str(average_travel_time), file=self.output_file, end=" ")
 
-            if self.printODpair:
-                ttByOD = self.travelTimeByOD(stepSolution)
-                output_file.write(self.build_od_pair_data(ttByOD))
+            if self.print_od_pair:
+                print(super().build_od_pair_data(super().travel_time_od(step_solution)),
+                      file=self.output_file, end="")
 
-            if self.printTravelTime:
-                travel_times = ''
-                edges = self.calculate_edges_travel_times(stepSolution)
-                for edge in self.edgeNames:
+            if self.print_travel_time:
+                travel_times = ""
+                edges = super().calculate_edges_travel_times(step_solution)
+                for edge in self.infos["edgeNames"]:
                     travel_times += str(edges[edge]) + " "
-                output_file.write(travel_times.strip() + " ")
+                print(travel_times.strip(), file=self.output_file, end=" ")
 
-            if self.printDriversPerLink:
-                drivers = ''
-                edges = self.driversPerLink(stepSolution)
-                for edge in self.edgeNames:
+            if self.print_drivers_link:
+                drivers = ""
+                edges = super().drivers_per_link(step_solution)
+                for edge in self.infos["edgeNames"]:
                     drivers += str(edges[edge]) + " "
-                output_file.write(drivers.strip())
+                print(drivers.strip(), file=self.output_file, end=" ")
 
-            if self.printDriversPerRoute:
-                self.TABLE_FILL = utils.clean_od_table(self.ODL, self.k)
-                for s in range(len(stepSolution)):
-                    self.TABLE_FILL[str(self.drivers[s].od.o)
-                                    + str(self.drivers[s].od.d)][stepSolution[s]] += 1
-                output_file.write(" ")
-                for keys in self.ODL:  # Now it prints in the correct order
-                    for x in range(len(self.TABLE_FILL[keys])):
-                        output_file.write(str(self.TABLE_FILL[keys][x]) + " ")
+            if self.print_drivers_route:
+                table = utils.clean_od_table(self.infos["ODL"], self.infos["num_routes"])
+                for s in range(len(step_solution)):
+                    table[str(self.infos["drivers"][s].origin_destination)][step_solution[s]] += 1
+                print(" ", file=self.output_file, end="")
+                for key in self.infos["ODL"]:  # Now it prints in the correct order
+                    for x in range(len(table[key])):
+                        print(str(table[key][x]), file=self.output_file, end=" ")
 
-            output_file.write("\n")
-    """
+            print("", file=self.output_file)
 
     def _create_path(self):
         """
             Creates the output file path.
         """
-        fmt = "./results_gaql_grouped/net_%s/GA/pm%4.4f/crossover_%.2f"
+        fmt = "./results_gaql_grouped/net_{0}/GA/pm{1:.4f}/crossover_{2:.2f}"
         self.path = fmt.format(self.infos["network_name"], self.infos["mutation"],
                                self.infos["crossover"])
 
@@ -311,11 +297,11 @@ class GaOutput(Output):
 
     def _create_header(self):
         headerstr = "#Parameters:" + "\tPopulation=" + str(self.infos["population"]) \
-                  + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
-                  + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
-                  + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
-                  + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
-                  + str(super().get_number_drivers())
+            + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
+            + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
+            + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
+            + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
+            + str(super().get_number_drivers())
 
         headerstr += "\n#Generation AVG_TT " + super().nodes_string()
         return headerstr
@@ -337,53 +323,46 @@ class QlGaOutput(GaOutput):
         self.output_file = open(self.filename, 'w')
         print(self._create_header(), file=self.output_file)
 
-    """
-    def __print_step(self, step_number, stepSolution, output_file, avgTT=None, qlTT=None):
+    def __print_step(self, step_number, step_solution, average_travel_time, ql_travel_time):
         if step_number % self.printInterval == 0:
-            if self.useGA:
-                if self.useQL:
-                    output_file.write(str(step_number) + " " + str(avgTT) +" "+ str(qlTT))
-                else:
-                    output_file.write(str(step_number) + " " + str(avgTT) + " ")
-            else:
-                output_file.write(str(step_number) + " " + str(qlTT)+" ")
+            print(str(step_number) + " " + str(average_travel_time) + " " + str(ql_travel_time),
+                  file=self.output_file, end="")
 
-            if self.printODpair:
-                ttByOD = self.travelTimeByOD(stepSolution)
-                output_file.write(self.build_od_pair_data(ttByOD))
+            if self.print_od_pair:
+                print(super().build_od_pair_data(super().travel_time_od(step_solution)),
+                      file=self.output_file, end="")
 
-            if self.printTravelTime:
-                travel_times = ''
-                edges = self.calculate_edges_travel_times(stepSolution)
-                for edge in self.edgeNames:
+            if self.print_travel_time:
+                travel_times = ""
+                edges = super().calculate_edges_travel_times(step_solution)
+                for edge in self.infos["edgeNames"]:
                     travel_times += str(edges[edge]) + " "
-                output_file.write(travel_times.strip() + " ")
+                print(travel_times.strip(), file=self.output_file, end=" ")
 
-            if self.printDriversPerLink:
-                drivers = ''
-                edges = self.driversPerLink(stepSolution)
-                for edge in self.edgeNames:
+            if self.print_drivers_link:
+                drivers = ""
+                edges = super().drivers_per_link(step_solution)
+                for edge in self.infos["edgeNames"]:
                     drivers += str(edges[edge]) + " "
-                output_file.write(drivers.strip())
+                print(drivers.strip(), file=self.output_file, end=" ")
 
-            if self.printDriversPerRoute:
-                self.TABLE_FILL = utils.clean_od_table(self.ODL, self.k)
-                for s in range(len(stepSolution)):
-                    self.TABLE_FILL[str(self.drivers[s].od.o)
-                                    + str(self.drivers[s].od.d)][stepSolution[s]] += 1
-                output_file.write(" ")
-                for keys in self.ODL:  # Now it prints in the correct order
-                    for x in range(len(self.TABLE_FILL[keys])):
-                        output_file.write(str(self.TABLE_FILL[keys][x]) + " ")
+            if self.print_drivers_route:
+                table = utils.clean_od_table(self.infos["ODL"], self.infos["num_routes"])
+                for s in range(len(step_solution)):
+                    table[str(self.infos["drivers"][s].origin_destination)][step_solution[s]] += 1
+                print(" ", file=self.output_file, end="")
+                for key in self.infos["ODL"]:  # Now it prints in the correct order
+                    for x in range(len(table[key])):
+                        print(str(table[key][x]), file=self.output_file, end=" ")
 
-            output_file.write("\n")
-    """
+            print("", file=self.output_file)
 
     def _create_path(self):
         """
             Creates the output file path.
         """
-        fmt = "./results_gaql_grouped/net_%s/QLGA/pm%4.4f/crossover_%.2f/decay%4.3f/alpha%3.2f"
+        fmt = "./results_gaql_grouped/net_{0}/QLGA/pm{1:.4f}"
+        fmt += "/crossover_{2:.2f}/decay{3:.3f}/alpha{4:.2f}"
         self.path = fmt.format(self.infos["network_name"], self.infos["mutation"],
                                self.infos["crossover"], self.infos["decay"], self.infos["alpha"])
 
@@ -391,16 +370,16 @@ class QlGaOutput(GaOutput):
         """
             Creates the output file name.
         """
-        super().create_filename()
+        super()._create_filename()
         self.filename += '_a' + str(self.infos["alpha"]) + '_d' + str(self.infos["decay"])
 
     def _create_header(self):
         headerstr = "#Parameters:" + "\tPopulation=" + str(self.infos["population"]) \
-                  + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
-                  + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
-                  + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
-                  + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
-                  + str(super().get_number_drivers())
+            + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
+            + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
+            + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
+            + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
+            + str(super().get_number_drivers())
         headerstr += "\n#\tAlpha=" + str(self.infos["alpha"]) + "\tDecay=" + str(self.infos["decay"])
 
         if self.infos["action_selection"] == "epsilon":
@@ -435,53 +414,15 @@ class GaQlOutput(QlGaOutput):
         self.output_file = open(self.filename, 'w')
         print(self._create_header(), file=self.output_file)
 
-    """
-    def __print_step(self, step_number, stepSolution, output_file, avgTT=None, qlTT=None):
-        if step_number % self.printInterval == 0:
-            if self.useGA:
-                if self.useQL:
-                    output_file.write(str(step_number) + " " + str(avgTT) +" "+ str(qlTT))
-                else:
-                    output_file.write(str(step_number) + " " + str(avgTT) + " ")
-            else:
-                output_file.write(str(step_number) + " " + str(qlTT)+" ")
-
-            if self.printODpair:
-                ttByOD = self.travelTimeByOD(stepSolution)
-                output_file.write(self.build_od_pair_data(ttByOD))
-
-            if self.printTravelTime:
-                travel_times = ''
-                edges = self.calculate_edges_travel_times(stepSolution)
-                for edge in self.edgeNames:
-                    travel_times += str(edges[edge]) + " "
-                output_file.write(travel_times.strip() + " ")
-
-            if self.printDriversPerLink:
-                drivers = ''
-                edges = self.driversPerLink(stepSolution)
-                for edge in self.edgeNames:
-                    drivers += str(edges[edge]) + " "
-                output_file.write(drivers.strip())
-
-            if self.printDriversPerRoute:
-                self.TABLE_FILL = utils.clean_od_table(self.ODL, self.k)
-                for s in range(len(stepSolution)):
-                    self.TABLE_FILL[str(self.drivers[s].od.o)
-                                    + str(self.drivers[s].od.d)][stepSolution[s]] += 1
-                output_file.write(" ")
-                for keys in self.ODL:  # Now it prints in the correct order
-                    for x in range(len(self.TABLE_FILL[keys])):
-                        output_file.write(str(self.TABLE_FILL[keys][x]) + " ")
-
-            output_file.write("\n")
-    """
+    def __print_step(self, step_number, step_solution, average_travel_time, ql_travel_time):
+        super().print_step(step_number, step_solution, average_travel_time, ql_travel_time)
 
     def _create_path(self):
         """
             Creates the output file path.
         """
-        fmt = "./results_gaql_grouped/net_%s/GAQL/pm%4.4f/crossover_%.2f/decay%4.3f/alpha%3.2f"
+        fmt = "./results_gaql_grouped/net_{0}/GAQL/pm{1:.4f}/crossover_{2:.2f}"
+        fmt += "/decay{3:.3f}/alpha{4:.2f}"
         self.path = fmt.format(self.infos["network_name"], self.infos["mutation"],
                                self.infos["crossover"], self.infos["decay"], self.infos["alpha"])
 
@@ -489,16 +430,16 @@ class GaQlOutput(QlGaOutput):
         """
             Creates the output file name.
         """
-        super().create_filename()
+        super()._create_filename()
         self.filename += '_interval' + str(self.infos["interval"])
 
     def _create_header(self):
         headerstr = "#Parameters:" + "\tPopulation=" + str(self.infos["population"]) \
-                  + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
-                  + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
-                  + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
-                  + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
-                  + str(super().get_number_drivers())
+            + "\n#\tMutation=" + str(self.infos["mutation"]) + "\tCrossover=" \
+            + str(self.infos["crossover"]) + "\n#\tElite=" + str(self.infos["elite"]) \
+            + "\t\tGroup size=" + str(self.infos["group_size"]) + "\n#\tk=" \
+            + str(self.infos["num_routes"]) + "\t\tNumber of drivers=" \
+            + str(super().get_number_drivers())
         headerstr += "\n#\tAlpha=" + str(self.infos["alpha"]) + "\tDecay=" + str(self.infos["decay"])
 
         if self.infos["action_selection"] == "epsilon":
